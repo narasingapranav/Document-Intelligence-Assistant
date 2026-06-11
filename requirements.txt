@@ -3,10 +3,11 @@ langchain
 langchain-community
 langchain-core
 langchain-text-splitters
-langchain-chroma
 langchain-huggingface
 langchain-google-genai
-chromadb
+chromadb==1.5.9
+langchain-chroma==1.1.0
+protobuf==5.29.5
 sentence-transformers
 pypdf
 python-dotenv
