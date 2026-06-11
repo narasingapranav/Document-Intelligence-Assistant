@@ -139,8 +139,8 @@ if uploaded_file:
                         page = source.get("page")
 
                         page_text = (
-                            f"Page {page + 1}"
-                            if page is not None
+                            f"Page {int(page) + 1}"
+                            if isinstance(page, (int, str)) and str(page).isdigit()
                             else "Unknown Page"
                         )
 
