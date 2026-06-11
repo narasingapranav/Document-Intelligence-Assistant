@@ -102,7 +102,7 @@ def make_emb(pdf_path):
 def search_docs(query, k=3):
 
     if not os.path.exists(DB_PATH):
-        raise ValueError("Vector database not found. Upload a PDF first.")
+        return []
 
     db = Chroma(
         persist_directory=DB_PATH,
