@@ -80,6 +80,11 @@ Context:
 
 Question:
 {question}
+
+You must answer only using the provided context.
+If the answer is not present in the context, say:
+"I don't know based on the provided documents."
+Do not use external knowledge.
 """)
 
     sources = [
