@@ -19,6 +19,8 @@ if "current_file" not in st.session_state:
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "db_ready" not in st.session_state:
+    st.session_state.db_ready = False
 
 # -----------------------
 # Sidebar
@@ -57,6 +59,7 @@ if uploaded_file:
     if st.session_state.current_file != uploaded_file.name:
         st.session_state.current_file = uploaded_file.name
         st.session_state.processed = False
+        st.session_state.db_ready = False
         st.session_state.messages = []
 
     st.success("✅ PDF uploaded successfully!")
@@ -84,9 +87,19 @@ if uploaded_file:
                 f.write(uploaded_file.getbuffer())
 
             with st.spinner("Creating embeddings..."):
-                make_emb(pdf_path)
+                success = make_emb(pdf_path)
 
-            st.session_state.processed = True
+            if success:
+                st.session_state.processed = True
+                st.session_state.db_ready = True
+                st.session_state.messages = []
+
+                st.success("✅ PDF processed successfully!")
+                st.rerun()
+            else:
+                st.session_state.processed = False
+                st.session_state.db_ready = False
+                st.error("❌ Failed to process PDF")
 
             st.success(
                 "✅ PDF processed successfully! You can now ask questions."
@@ -95,7 +108,7 @@ if uploaded_file:
     # -----------------------
     # Chat Interface
     # -----------------------
-    if st.session_state.processed:
+    if st.session_state.db_ready:
 
         for message in st.session_state.messages:
             with st.chat_message(message["role"]):
@@ -118,6 +131,9 @@ if uploaded_file:
                 st.write(question)
 
             with st.spinner("Thinking..."):
+                if not st.session_state.db_ready:
+                    st.warning("Please process the PDF first.")
+                    st.stop()
                 result = ask_question(question)
 
             answer = result["answer"]
