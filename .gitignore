@@ -1,0 +1,12 @@
+.env
+__pycache__/
+rag/
+chroma_db/
+uploads/
+sample.pdf
+search.py
+makeemb.py
+create_emb.py
+chroma.py
+llm.py
+chat.py
