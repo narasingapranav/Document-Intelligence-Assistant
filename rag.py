@@ -70,7 +70,7 @@ def make_emb(pdf_path):
         # Clean metadata
         for chunk in chunks:
             chunk.metadata = {
-                str(k): str(v)
+                k: v
                 for k, v in chunk.metadata.items()
                 if v is not None
             }
