@@ -11,3 +11,6 @@ chroma.py
 llm.py
 chat.py
 .streamlit/secrets.toml
+firebase.txt
+temp.py
+testdb.py
