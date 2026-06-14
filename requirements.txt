@@ -4,7 +4,6 @@ langchain-community
 langchain-core
 langchain-text-splitters
 langchain-huggingface
-langchain-google-genai
 
 chromadb==1.5.9
 langchain-chroma==1.1.0
@@ -19,3 +18,6 @@ pymongo
 
 requests
 urllib3
+
+langchain-google-genai==2.0.7
+pydantic<2.8
