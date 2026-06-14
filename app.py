@@ -1,9 +1,12 @@
 import os
 import streamlit as st
 from rag import make_emb, ask_question
-from auth import auth
+from auth import login, register
 from db import users
 
+# -----------------------
+# PAGE CONFIG
+# -----------------------
 st.set_page_config(
     page_title="Document Intelligence Assistant",
     page_icon="📄",
@@ -13,6 +16,12 @@ st.set_page_config(
 # -----------------------
 # SESSION STATE INIT
 # -----------------------
+if "user" not in st.session_state:
+    st.session_state.user = None
+
+if "uid" not in st.session_state:
+    st.session_state.uid = None
+
 if "processed" not in st.session_state:
     st.session_state.processed = False
 
@@ -24,12 +33,6 @@ if "messages" not in st.session_state:
 
 if "db_ready" not in st.session_state:
     st.session_state.db_ready = False
-
-if "user" not in st.session_state:
-    st.session_state.user = None
-
-if "uid" not in st.session_state:
-    st.session_state.uid = None
 
 
 # -----------------------
@@ -65,62 +68,63 @@ with st.sidebar:
 
 
 # -----------------------
-# LOGIN PAGE
+# TITLE
 # -----------------------
 st.title("📄 Document Intelligence Assistant")
 st.caption("Upload a PDF and chat with your document")
 
-# IMPORTANT: show login if not logged in
+
+# -----------------------
+# LOGIN / REGISTER PAGE
+# -----------------------
 if st.session_state.user is None:
 
-    st.title("🔐 Login")
+    st.subheader("🔐 Login / Register")
 
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
 
     col1, col2 = st.columns(2)
 
+    # LOGIN
     with col1:
         if st.button("Login"):
-            try:
-                user = auth.sign_in_with_email_and_password(email, password)
+            res = login(email, password)
 
-                uid = user["localId"]
+            if "localId" in res:
+                st.session_state.user = res
+                st.session_state.uid = res["localId"]
 
+                # store user in MongoDB
                 users.update_one(
-                    {"uid": uid},
-                    {
-                        "$set": {
-                            "uid": uid,
-                            "email": email
-                        }
-                    },
+                    {"uid": st.session_state.uid},
+                    {"$set": {"uid": st.session_state.uid, "email": email}},
                     upsert=True
                 )
 
-                st.session_state.user = user
-                st.session_state.uid = uid
-
+                st.success("Login successful")
                 st.rerun()
 
-            except Exception:
-                st.error("Invalid credentials")
+            else:
+                st.error(res.get("error", {}).get("message", "Login failed"))
 
+    # REGISTER
     with col2:
         if st.button("Register"):
-            try:
-                auth.create_user_with_email_and_password(email, password)
+            res = register(email, password)
+
+            if "localId" in res:
                 st.success("Account created. Please login.")
-            except Exception as e:
-                st.error(str(e))
+            else:
+                st.error(res.get("error", {}).get("message", "Signup failed"))
 
     st.stop()
 
 
 # -----------------------
-# SAFE UID ACCESS
+# SAFE UID CHECK
 # -----------------------
-if st.session_state.user is None:
+if st.session_state.user is None or st.session_state.uid is None:
     st.error("Session expired. Please login again.")
     st.stop()
 
@@ -130,14 +134,10 @@ uid = st.session_state.uid
 # -----------------------
 # FILE UPLOAD
 # -----------------------
-uploaded_file = st.file_uploader(
-    "Choose a PDF file",
-    type=["pdf"]
-)
+uploaded_file = st.file_uploader("Choose a PDF file", type=["pdf"])
 
 if uploaded_file:
 
-    # reset state if new file
     if st.session_state.current_file != uploaded_file.name:
         st.session_state.current_file = uploaded_file.name
         st.session_state.processed = False
@@ -159,7 +159,6 @@ if uploaded_file:
         if st.button("🚀 Process PDF"):
 
             os.makedirs("uploads", exist_ok=True)
-
             pdf_path = os.path.join("uploads", uploaded_file.name)
 
             with open(pdf_path, "wb") as f:
@@ -185,9 +184,9 @@ if uploaded_file:
 # -----------------------
 if st.session_state.db_ready:
 
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.write(message["content"])
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.write(msg["content"])
 
     question = st.chat_input("Ask a question about the document...")
 
@@ -220,7 +219,7 @@ if st.session_state.db_ready:
 
             with st.expander("📚 Sources"):
                 for source in result["sources"]:
-                    page = source.get("page") if isinstance(source, dict) else None
+                    page = source.get("page")
 
                     page_text = (
                         f"Page {int(page) + 1}"
@@ -228,7 +227,7 @@ if st.session_state.db_ready:
                         else "Unknown Page"
                     )
 
-                    st.write(f"📄 {source['source']} | {page_text}")
+                    st.write(f"📄 {source.get('source', 'Unknown')} | {page_text}")
 
 else:
     st.info("👆 Upload a PDF to get started.")

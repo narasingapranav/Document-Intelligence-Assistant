@@ -1,25 +1,54 @@
-import firebase_admin
-from firebase_admin import credentials, auth
+import requests
 import streamlit as st
+import firebase_admin
+from firebase_admin import credentials, auth as admin_auth
 
+# -----------------------------
+# FIREBASE ADMIN INIT (backend)
+# -----------------------------
 if not firebase_admin._apps:
-
-    cred_dict = {
-        "type": st.secrets["FIREBASE_TYPE"],
-        "project_id": st.secrets["FIREBASE_PROJECT_ID"],
-        "private_key_id": st.secrets["FIREBASE_PRIVATE_KEY_ID"],
-        "private_key": st.secrets["FIREBASE_PRIVATE_KEY"],
-        "client_email": st.secrets["FIREBASE_CLIENT_EMAIL"],
-        "client_id": st.secrets["FIREBASE_CLIENT_ID"],
-        "token_uri": st.secrets["FIREBASE_TOKEN_URI"],
-    }
-
-    cred = credentials.Certificate(cred_dict)
+    cred = credentials.Certificate(st.secrets["FIREBASE_ADMIN"])
     firebase_admin.initialize_app(cred)
 
 
+# -----------------------------
+# VERIFY ID TOKEN (backend use)
+# -----------------------------
 def verify_user(id_token):
     try:
-        return auth.verify_id_token(id_token)
-    except:
+        decoded = admin_auth.verify_id_token(id_token)
+        return decoded
+    except Exception:
         return None
+
+
+# -----------------------------
+# LOGIN (REST API - frontend safe)
+# -----------------------------
+def login(email, password):
+    url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={st.secrets['FIREBASE_API_KEY']}"
+
+    payload = {
+        "email": email,
+        "password": password,
+        "returnSecureToken": True
+    }
+
+    res = requests.post(url, json=payload)
+    return res.json()
+
+
+# -----------------------------
+# REGISTER (REST API)
+# -----------------------------
+def register(email, password):
+    url = f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={st.secrets['FIREBASE_API_KEY']}"
+
+    payload = {
+        "email": email,
+        "password": password,
+        "returnSecureToken": True
+    }
+
+    res = requests.post(url, json=payload)
+    return res.json()
