@@ -21,3 +21,4 @@ pyrebase4
 
 protobuf>=4,<6
 pydantic>=2.7,<3
+langchain-huggingface
