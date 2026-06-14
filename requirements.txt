@@ -1,12 +1,17 @@
 streamlit
-langchain
-langchain-community
-langchain-core
-langchain-text-splitters
+
+langchain==0.3.15
+langchain-community==0.3.15
+langchain-core==0.3.15
+langchain-text-splitters==0.3.15
+
 langchain-huggingface
 
 chromadb==1.5.9
-langchain-chroma==1.1.0
+langchain-chroma==0.1.4
+
+langchain-google-genai==0.0.12
+
 protobuf==5.29.5
 
 sentence-transformers
@@ -15,9 +20,6 @@ python-dotenv
 
 pyrebase4
 pymongo
-
 requests
 urllib3
-
-langchain-google-genai==2.0.7
-pydantic<2.8
+torchvision
