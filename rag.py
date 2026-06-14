@@ -5,8 +5,6 @@ from langchain_chroma import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI
 from dotenv import load_dotenv
 
-import os
-import shutil
 import traceback
 
 # -------------------------
@@ -29,19 +27,12 @@ embeddings = HuggingFaceEmbeddings(
     model_name="sentence-transformers/all-MiniLM-L6-v2"
 )
 
-DB_PATH = "chroma_db"
-
-
 # -------------------------
 # CREATE VECTOR DATABASE
 # -------------------------
 def make_emb(pdf_path):
 
     try:
-        # Remove old database
-        if os.path.exists(DB_PATH):
-            shutil.rmtree(DB_PATH)
-
         # Load PDF
         loader = PyPDFLoader(pdf_path)
         pages = loader.load()
@@ -78,16 +69,15 @@ def make_emb(pdf_path):
         print(f"Pages Loaded : {len(pages)}")
         print(f"Chunks Created: {len(chunks)}")
 
-        # Create Chroma DB
+        # Create in-memory Chroma DB
         vectorstore = Chroma.from_documents(
             documents=chunks,
             embedding=embeddings,
-            persist_directory=DB_PATH
         )
 
         print("✅ ChromaDB created successfully")
 
-        return True
+        return vectorstore
 
     except Exception as e:
         print("\n❌ ERROR DURING EMBEDDING CREATION")
@@ -99,17 +89,12 @@ def make_emb(pdf_path):
 # -------------------------
 # SEARCH DOCUMENTS
 # -------------------------
-def search_docs(query, k=3):
+def search_docs(query, vectorstore, k=3):
 
-    if not os.path.exists(DB_PATH):
+    if vectorstore is None:
         return []
 
-    db = Chroma(
-        persist_directory=DB_PATH,
-        embedding_function=embeddings
-    )
-
-    docs = db.similarity_search(query, k=k)
+    docs = vectorstore.similarity_search(query, k=k)
 
     return docs
 
@@ -117,11 +102,11 @@ def search_docs(query, k=3):
 # -------------------------
 # RAG QUESTION ANSWERING
 # -------------------------
-def ask_question(question):
+def ask_question(question, vectorstore):
 
     try:
 
-        docs = search_docs(question)
+        docs = search_docs(question, vectorstore)
 
         if not docs:
             return {

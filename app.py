@@ -19,8 +19,13 @@ if "current_file" not in st.session_state:
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
+
 if "db_ready" not in st.session_state:
     st.session_state.db_ready = False
+
+# NEW
+if "vectorstore" not in st.session_state:
+    st.session_state.vectorstore = None
 
 # -----------------------
 # Sidebar
@@ -60,6 +65,7 @@ if uploaded_file:
         st.session_state.current_file = uploaded_file.name
         st.session_state.processed = False
         st.session_state.db_ready = False
+        st.session_state.vectorstore = None
         st.session_state.messages = []
 
     st.success("✅ PDF uploaded successfully!")
@@ -87,23 +93,21 @@ if uploaded_file:
                 f.write(uploaded_file.getbuffer())
 
             with st.spinner("Creating embeddings..."):
-                success = make_emb(pdf_path)
+                vectorstore = make_emb(pdf_path)
 
-            if success:
+            if vectorstore:
+                st.session_state.vectorstore = vectorstore
                 st.session_state.processed = True
                 st.session_state.db_ready = True
                 st.session_state.messages = []
 
                 st.success("✅ PDF processed successfully!")
                 st.rerun()
+
             else:
                 st.session_state.processed = False
                 st.session_state.db_ready = False
                 st.error("❌ Failed to process PDF")
-
-            st.success(
-                "✅ PDF processed successfully! You can now ask questions."
-            )
 
     # -----------------------
     # Chat Interface
@@ -131,10 +135,15 @@ if uploaded_file:
                 st.write(question)
 
             with st.spinner("Thinking..."):
+
                 if not st.session_state.db_ready:
                     st.warning("Please process the PDF first.")
                     st.stop()
-                result = ask_question(question)
+
+                result = ask_question(
+                    question,
+                    st.session_state.vectorstore
+                )
 
             answer = result["answer"]
 
@@ -156,7 +165,8 @@ if uploaded_file:
 
                         page_text = (
                             f"Page {int(page) + 1}"
-                            if isinstance(page, (int, str)) and str(page).isdigit()
+                            if isinstance(page, (int, str))
+                            and str(page).isdigit()
                             else "Unknown Page"
                         )
 
