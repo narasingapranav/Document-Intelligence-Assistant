@@ -4,7 +4,6 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI
 from dotenv import load_dotenv
-
 import traceback
 
 # -------------------------
@@ -27,20 +26,30 @@ embeddings = HuggingFaceEmbeddings(
     model_name="sentence-transformers/all-MiniLM-L6-v2"
 )
 
+DB_PATH = "chroma_db"
+
 # -------------------------
-# CREATE VECTOR DATABASE
+# GET USER VECTORSTORE
 # -------------------------
-def make_emb(pdf_path):
+def get_vectorstore(uid):
+    return Chroma(
+        collection_name=uid,
+        persist_directory=DB_PATH,
+        embedding_function=embeddings
+    )
+
+# -------------------------
+# CREATE VECTOR DATABASE (PER USER)
+# -------------------------
+def make_emb(pdf_path, uid):
 
     try:
-        # Load PDF
         loader = PyPDFLoader(pdf_path)
         pages = loader.load()
 
         if not pages:
             raise ValueError("No pages found in PDF.")
 
-        # Split text
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
             chunk_overlap=100
@@ -48,36 +57,27 @@ def make_emb(pdf_path):
 
         chunks = splitter.split_documents(pages)
 
-        # Remove empty chunks
         chunks = [
-            chunk
-            for chunk in chunks
+            chunk for chunk in chunks
             if chunk.page_content and chunk.page_content.strip()
         ]
 
         if not chunks:
             raise ValueError("No valid text extracted from PDF.")
 
-        # Clean metadata
         for chunk in chunks:
             chunk.metadata = {
-                k: v
-                for k, v in chunk.metadata.items()
+                k: v for k, v in chunk.metadata.items()
                 if v is not None
             }
 
-        print(f"Pages Loaded : {len(pages)}")
-        print(f"Chunks Created: {len(chunks)}")
+        vectorstore = get_vectorstore(uid)
 
-        # Create in-memory Chroma DB
-        vectorstore = Chroma.from_documents(
-            documents=chunks,
-            embedding=embeddings,
-        )
+        vectorstore.add_documents(chunks)
 
-        print("✅ ChromaDB created successfully")
+        print("✅ Embeddings stored for user:", uid)
 
-        return vectorstore
+        return True
 
     except Exception as e:
         print("\n❌ ERROR DURING EMBEDDING CREATION")
@@ -87,26 +87,21 @@ def make_emb(pdf_path):
 
 
 # -------------------------
-# SEARCH DOCUMENTS
+# SEARCH
 # -------------------------
-def search_docs(query, vectorstore, k=3):
+def search_docs(query, uid, k=3):
 
-    if vectorstore is None:
-        return []
-
-    docs = vectorstore.similarity_search(query, k=k)
-
-    return docs
+    vectorstore = get_vectorstore(uid)
+    return vectorstore.similarity_search(query, k=k)
 
 
 # -------------------------
-# RAG QUESTION ANSWERING
+# RAG QA
 # -------------------------
-def ask_question(question, vectorstore):
+def ask_question(question, uid):
 
     try:
-
-        docs = search_docs(question, vectorstore)
+        docs = search_docs(question, uid)
 
         if not docs:
             return {
@@ -114,10 +109,7 @@ def ask_question(question, vectorstore):
                 "sources": []
             }
 
-        context = "\n\n".join(
-            doc.page_content
-            for doc in docs
-        )
+        context = "\n\n".join(doc.page_content for doc in docs)
 
         prompt = f"""
 Use ONLY the context below to answer.
@@ -130,29 +122,25 @@ Question:
 
 Rules:
 1. Answer only from the provided context.
-2. If the answer is not found in the context, reply:
-   "I don't know based on the provided documents."
+2. If not found, say: "I don't know based on the provided documents."
 3. Do not use outside knowledge.
 """
 
         response = llm.invoke(prompt)
 
-        sources = []
-
-        for doc in docs:
-            sources.append({
-                "page": doc.metadata.get("page", "Unknown"),
-                "source": doc.metadata.get("source", "Unknown")
-            })
-
         return {
             "answer": response.content,
-            "sources": sources
+            "sources": [
+                {
+                    "page": d.metadata.get("page", "Unknown"),
+                    "source": d.metadata.get("source", "Unknown")
+                }
+                for d in docs
+            ]
         }
 
     except Exception as e:
         traceback.print_exc()
-
         return {
             "answer": f"Error: {str(e)}",
             "sources": []

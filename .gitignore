@@ -10,3 +10,4 @@ create_emb.py
 chroma.py
 llm.py
 chat.py
+.streamlit/secrets.toml
