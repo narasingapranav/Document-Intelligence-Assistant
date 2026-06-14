@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 from rag import make_emb, ask_question
-from auth import verify_user
+from auth import auth
 from db import users
 
 st.set_page_config(
@@ -11,7 +11,7 @@ st.set_page_config(
 )
 
 # -----------------------
-# SESSION STATE
+# SESSION STATE INIT
 # -----------------------
 if "processed" not in st.session_state:
     st.session_state.processed = False
@@ -28,6 +28,9 @@ if "db_ready" not in st.session_state:
 if "user" not in st.session_state:
     st.session_state.user = None
 
+if "uid" not in st.session_state:
+    st.session_state.uid = None
+
 
 # -----------------------
 # SIDEBAR
@@ -36,10 +39,11 @@ with st.sidebar:
     st.title("📄 RAG Chatbot")
 
     if st.session_state.user:
-        st.success(f"Logged In")
+        st.success("Logged In")
 
         if st.button("Logout"):
             st.session_state.user = None
+            st.session_state.uid = None
             st.session_state.processed = False
             st.session_state.db_ready = False
             st.session_state.messages = []
@@ -66,8 +70,8 @@ with st.sidebar:
 st.title("📄 Document Intelligence Assistant")
 st.caption("Upload a PDF and chat with your document")
 
-if "user" not in st.session_state:
-    st.session_state.user = {"localId": "demo-user"}
+# IMPORTANT: show login if not logged in
+if st.session_state.user is None:
 
     st.title("🔐 Login")
 
@@ -78,9 +82,9 @@ if "user" not in st.session_state:
 
     with col1:
         if st.button("Login"):
-
             try:
                 user = auth.sign_in_with_email_and_password(email, password)
+
                 uid = user["localId"]
 
                 users.update_one(
@@ -95,6 +99,8 @@ if "user" not in st.session_state:
                 )
 
                 st.session_state.user = user
+                st.session_state.uid = uid
+
                 st.rerun()
 
             except Exception:
@@ -102,11 +108,9 @@ if "user" not in st.session_state:
 
     with col2:
         if st.button("Register"):
-
             try:
                 auth.create_user_with_email_and_password(email, password)
                 st.success("Account created. Please login.")
-
             except Exception as e:
                 st.error(str(e))
 
@@ -114,9 +118,13 @@ if "user" not in st.session_state:
 
 
 # -----------------------
-# GET USER UID
+# SAFE UID ACCESS
 # -----------------------
-uid = st.session_state.user["localId"]
+if st.session_state.user is None:
+    st.error("Session expired. Please login again.")
+    st.stop()
+
+uid = st.session_state.uid
 
 
 # -----------------------
@@ -194,7 +202,6 @@ if st.session_state.db_ready:
             st.write(question)
 
         with st.spinner("Thinking..."):
-
             try:
                 result = ask_question(question, uid)
             except Exception as e:
@@ -213,7 +220,7 @@ if st.session_state.db_ready:
 
             with st.expander("📚 Sources"):
                 for source in result["sources"]:
-                    page = source.get("page", None) if isinstance(source, dict) else None
+                    page = source.get("page") if isinstance(source, dict) else None
 
                     page_text = (
                         f"Page {int(page) + 1}"
