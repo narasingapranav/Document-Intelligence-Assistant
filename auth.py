@@ -1,15 +1,15 @@
+import firebase_admin
+from firebase_admin import credentials, auth
 import streamlit as st
-import pyrebase
 
-firebase_config = {
-    "apiKey": st.secrets["FIREBASE_API_KEY"],
-    "authDomain": st.secrets["FIREBASE_AUTH_DOMAIN"],
-    "databaseURL": "",
-    "projectId": st.secrets["FIREBASE_PROJECT_ID"],
-    "storageBucket": st.secrets["FIREBASE_STORAGE_BUCKET"],
-    "messagingSenderId": st.secrets["FIREBASE_MESSAGING_SENDER_ID"],
-    "appId": st.secrets["FIREBASE_APP_ID"]
-}
+cred = credentials.Certificate("serviceAccountKey.json")
 
-firebase = pyrebase.initialize_app(firebase_config)
-auth = firebase.auth()
+if not firebase_admin._apps:
+    firebase_admin.initialize_app(cred)
+
+
+def verify_user(id_token):
+    try:
+        return auth.verify_id_token(id_token)
+    except Exception:
+        return None

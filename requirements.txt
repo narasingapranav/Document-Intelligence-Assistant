@@ -17,7 +17,7 @@ python-dotenv
 pymongo
 requests
 urllib3
-pyrebase4
+firebase-admin
 
 protobuf>=4,<6
 pydantic>=2.7,<3

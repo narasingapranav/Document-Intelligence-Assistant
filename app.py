@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 from rag import make_emb, ask_question
-from auth import auth
+from auth import verify_user
 from db import users
 
 st.set_page_config(
@@ -66,7 +66,8 @@ with st.sidebar:
 st.title("📄 Document Intelligence Assistant")
 st.caption("Upload a PDF and chat with your document")
 
-if st.session_state.user is None:
+if "user" not in st.session_state:
+    st.session_state.user = {"localId": "demo-user"}
 
     st.title("🔐 Login")
 
@@ -194,7 +195,11 @@ if st.session_state.db_ready:
 
         with st.spinner("Thinking..."):
 
-            result = ask_question(question, uid)
+            try:
+                result = ask_question(question, uid)
+            except Exception as e:
+                st.error(f"RAG error: {e}")
+                result = {"answer": "Error occurred", "sources": []}
 
         answer = result["answer"]
 
@@ -208,7 +213,7 @@ if st.session_state.db_ready:
 
             with st.expander("📚 Sources"):
                 for source in result["sources"]:
-                    page = source.get("page")
+                    page = source.get("page", None) if isinstance(source, dict) else None
 
                     page_text = (
                         f"Page {int(page) + 1}"
